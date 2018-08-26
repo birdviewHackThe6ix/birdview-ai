@@ -9,6 +9,10 @@ from PIL import Image
 
 from pymongo import MongoClient
 
+import requests
+from io import StringIO
+import urllib.request
+
 gcp_client = GCPClient()
 
 client = MongoClient()
@@ -26,6 +30,10 @@ def process():
     nlu_response = gcp_client.analyze_text(request.args.get('text', ''))
 
     # Get Image
+
+    
+
+
     img = Image.open(request.files['file'])
     path = '/Users/alaashamandy/Desktop/ourfile.jpg'
     img.save(path)
