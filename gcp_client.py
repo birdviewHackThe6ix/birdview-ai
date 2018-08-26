@@ -9,6 +9,11 @@ import argparse
 import io
 import os
 from google.cloud import automl_v1beta1 as automl
+from google.cloud import vision
+from google.cloud.vision import types as Vtypes
+from PIL import Image, ImageDraw
+
+
 
 
 
@@ -43,14 +48,14 @@ class GCPClient:
         return res
 
     
-    def predict(self):
+    def predictPerson(self, file_path):
         """Make a prediction for an image."""
         # [START automl_vision_predict]
         # TODO(developer): Uncomment and set the following variables
         project_id = 'birdview-214413'
         compute_region = 'us-central1'
-        model_id = 'ICN3754998888766534373'
-        file_path = '/Users/alaashamandy/Desktop/testImage.jpg'
+        model_id = 'ICN7195861326055675146'
+        # file_path = '/Users/alaashamandy/Desktop/IMG_4019 copy.jpg'
         score_threshold = '0.5'
 
 
@@ -77,38 +82,67 @@ class GCPClient:
             params = {"score_threshold": score_threshold}
 
         response = prediction_client.predict(model_full_id, payload, params)
-        print("Prediction results:")
-        for result in response.payload:
-            print("Predicted class name: {}".format(result.display_name))
-            print("Predicted class score: {}".format(result.classification.score))
+        # print("Prediction results:")
+        # for result in response.payload:
+        #     print("Predicted class name: {}".format(result.display_name))
+        #     print("Predicted class score: {}".format(result.classification.score))
+
+        return {"name": response.payload[0].display_name, "score": response.payload[0].classification.score}
 
         # [END automl_vision_predict]
 
-if (__name__=="__main__"):
-    new_client = GCPClient()
 
-    # parser = argparse.ArgumentParser(
-    #     description=__doc__,
-    #     formatter_class=argparse.RawDescriptionHelpFormatter,
-    # )
-    # subparsers = parser.add_subparsers(dest="command")
+# Cropping picture
+    def get_crop_hint(self, path):
+        """Detect crop hints on a single image and return the first result."""
+        client = vision.ImageAnnotatorClient()
 
-    # predict_parser = subparsers.add_parser("predict", help=predict.__doc__)
-    # predict_parser.add_argument("model_id")
-    # predict_parser.add_argument("file_path")
-    # predict_parser.add_argument("score_threshold", nargs="?", default="")
+        with io.open(path, 'rb') as image_file:
+            content = image_file.read()
 
-    # project_id = os.environ["PROJECT_ID"]
-    # compute_region = os.environ["REGION_NAME"]
+        image = Vtypes.Image(content=content)
+# 2.3
+        crop_hints_params = Vtypes.CropHintsParams(aspect_ratios=[0.3])
+        image_context = Vtypes.ImageContext(crop_hints_params=crop_hints_params)
 
-    # args = parser.parse_args()
+        response = client.crop_hints(image=image, image_context=image_context)
+        hints = response.crop_hints_annotation.crop_hints
 
-    # if args.command == "predict":
-    new_client.predict(
-            # project_id,
-            # compute_region,
-            # args.model_id,
-            # args.file_path,
-            # args.score_threshold,
-    )
+        # Get bounds for the first crop hint using an aspect ratio of 1.77.
+        vertices = hints[0].bounding_poly.vertices
+
+        return vertices
+
+    def draw_hint(self, image_file):
+        """Draw a border around the image using the hints in the vector list."""
+        vects = self.get_crop_hint(image_file)
+
+        im = Image.open(image_file)
+        draw = ImageDraw.Draw(im)
+        draw.polygon([
+            vects[0].x, vects[0].y,
+            vects[1].x, vects[1].y,
+            vects[2].x, vects[2].y,
+            vects[3].x, vects[3].y], None, 'red')
+        im.save('/Users/alaashamandy/Desktop/output-hint.jpg', 'JPEG')
+
+    def crop_to_hint(self, image_file):
+        """Crop the image using the hints in the vector list."""
+        vects = self.get_crop_hint(image_file)
+
+        im = Image.open(image_file)
+        im2 = im.crop([vects[0].x, vects[0].y,
+                      vects[2].x - 1, vects[2].y - 1])
+        im2.save('/Users/alaashamandy/Desktop/output-crop.jpg', 'JPEG')
+
+
+# if (__name__=="__main__"):
+#     # path= '/Users/alaashamandy/Desktop/testImage2.jpg'
+#     # # run visual recogn
+#     # new_client = GCPClient()
+#     # # new_client.predictPerson()
+
+#     # # new_client.draw_hint(path)
+#     # new_client.predictPerson()
+
 
