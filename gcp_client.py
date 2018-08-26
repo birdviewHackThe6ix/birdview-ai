@@ -8,19 +8,20 @@ import sys
 import argparse
 import io
 import os
-from google.cloud import automl_v1beta1 as automl
-from google.cloud import vision
-from google.cloud.vision import types as Vtypes
+# Image related imports
 from PIL import Image, ImageDraw
 
+# Imports the Google Maps SDK
+import googlemaps
 
-
-
+# Credentials
+MAPSAPIKEY = open(os.path.join('APIKEYS.txt'), 'r').readline().strip()
 
 class GCPClient:
     def __init__(self):
         # Instantiates a client
         self.client = language.LanguageServiceClient()
+        self.gmaps = googlemaps.Client(key=MAPSAPIKEY)
 
     def analyze_text(self, text):
         # Initialize a document object
@@ -47,49 +48,10 @@ class GCPClient:
             })
         return res
 
-    
-    def predictPerson(self, file_path):
-        """Make a prediction for an image."""
-        # [START automl_vision_predict]
-        # TODO(developer): Uncomment and set the following variables
-        project_id = 'birdview-214413'
-        compute_region = 'us-central1'
-        model_id = 'ICN7195861326055675146'
-        # file_path = '/Users/alaashamandy/Desktop/IMG_4019 copy.jpg'
-        score_threshold = '0.5'
-
-
-        automl_client = automl.AutoMlClient()
-
-        # Get the full path of the model.
-        model_full_id = automl_client.model_path(
-            project_id, compute_region, model_id
-        )
-
-        # Create client for prediction service.
-        prediction_client = automl.PredictionServiceClient()
-
-        # Read the image and assign to payload.
-        with open(file_path, "rb") as image_file:
-            content = image_file.read()
-        payload = {"image": {"image_bytes": content}}
-
-        # params is additional domain-specific parameters.
-        # score_threshold is used to filter the result
-        # Initialize params
-        params = {}
-        if score_threshold:
-            params = {"score_threshold": score_threshold}
-
-        response = prediction_client.predict(model_full_id, payload, params)
-        # print("Prediction results:")
-        # for result in response.payload:
-        #     print("Predicted class name: {}".format(result.display_name))
-        #     print("Predicted class score: {}".format(result.classification.score))
-
-        return {"name": response.payload[0].display_name, "score": response.payload[0].classification.score}
-
-        # [END automl_vision_predict]
+    # Geocoding an address
+    def geocode(self, address_components):
+        geocode_result = self.gmaps.geocode(address_components)
+        return result[0]['formatted_address']
 
 
 # Cropping picture
@@ -134,15 +96,3 @@ class GCPClient:
         im2 = im.crop([vects[0].x, vects[0].y,
                       vects[2].x - 1, vects[2].y - 1])
         im2.save('/Users/alaashamandy/Desktop/output-crop.jpg', 'JPEG')
-
-
-# if (__name__=="__main__"):
-#     # path= '/Users/alaashamandy/Desktop/testImage2.jpg'
-#     # # run visual recogn
-#     # new_client = GCPClient()
-#     # # new_client.predictPerson()
-
-#     # # new_client.draw_hint(path)
-#     # new_client.predictPerson()
-
-
